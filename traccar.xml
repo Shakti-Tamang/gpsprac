@@ -1,0 +1,23 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE properties SYSTEM 'http://java.sun.com/dtd/properties.dtd'>
+<properties>
+
+    <!-- Web UI Port -->
+    <entry key='web.port'>8082</entry>
+
+    <!-- Database Connection (TimescaleDB / Postgres) -->
+    <entry key='database.driver'>org.postgresql.Driver</entry>
+    <entry key='database.url'>jdbc:postgresql://db:5432/gpstracker</entry>
+    <entry key='database.user'>postgres</entry>
+    <entry key='database.password'>postgres</entry>
+
+    <!-- Forward GPS Positions to your NestJS Backend Webhook -->
+    <entry key='forward.enable'>true</entry>
+    <entry key='forward.type'>json</entry>
+    <entry key='forward.url'>http://host.docker.internal:8000/api/vehicles/traccar/position</entry>
+
+    <!-- Forward Events (SOS, Geofence, Overspeed) -->
+    <entry key='event.forward.enable'>true</entry>
+    <entry key='event.forward.url'>http://host.docker.internal:8000/api/vehicles/traccar/event</entry>
+
+</properties>
