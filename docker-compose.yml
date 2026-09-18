@@ -1,0 +1,41 @@
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    container_name: gps-timescaledb
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: gpstracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - timescale_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d gpstracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  traccar:
+    image: traccar/traccar:latest
+    container_name: gps-traccar
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8082:8082"  # Traccar Web UI & REST API
+      - "5055:5055"  # OsmAnd HTTP protocol (easy phone simulation)
+      - "5023:5023"  # GT06 / Coban protocol
+      - "5027:5027"  # Teltonika protocol
+      - "5001:5001"  # TK103 protocol
+    volumes:
+      - ./traccar.xml:/opt/traccar/conf/traccar.xml:ro
+      - traccar_data:/opt/traccar/data
+      - traccar_logs:/opt/traccar/logs
+
+volumes:
+  timescale_data:
+  traccar_data:
+  traccar_logs:
