@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Universal GPS Tracking — Live Map</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --panel-bg: rgba(18, 24, 38, 0.85);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.4);
+      --accent-success: #10b981;
+      --accent-warning: #f59e0b;
+      --accent-danger: #ef4444;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --radius: 12px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-main);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    #map {
+      flex: 1;
+      height: 100%;
+      background: #0f172a;
+      z-index: 1;
+    }
+
+    /* Floating Dashboard Panel */
+    .dashboard-panel {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 1000;
+      width: 380px;
+      max-height: calc(100vh - 40px);
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: var(--radius);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .panel-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #60a5fa 0%, #a855f7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .live-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: #10b981;
+      box-shadow: 0 0 10px #10b981;
+      animation: pulse 1.8s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.95); opacity: 0.8; }
+      50% { transform: scale(1.4); opacity: 1; }
+      100% { transform: scale(0.95); opacity: 0.8; }
+    }
+
+    .panel-body {
+      padding: 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-group label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    input, select {
+      width: 100%;
+      background: rgba(11, 15, 25, 0.8);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px var(--accent-glow);
+    }
+
+    button.btn-primary {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #ffffff;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s;
+      box-shadow: 0 4px 12px var(--accent-glow);
+      white-space: nowrap;
+    }
+
+    button.btn-primary:hover {
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      transform: translateY(-1px);
+    }
+
+    button.btn-primary:active {
+      transform: translateY(0);
+    }
+
+    /* Telemetry Cards */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .telemetry-card {
+      background: rgba(11, 15, 25, 0.6);
+      border: 1px solid var(--panel-border);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .telemetry-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .telemetry-value {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .telemetry-value.ignition-on {
+      color: #34d399;
+    }
+
+    .telemetry-value.ignition-off {
+      color: #f87171;
+    }
+
+    .telemetry-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .status-alert {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5;
+      display: none;
+    }
+
+    /* Custom Leaflet Marker */
+    .gps-marker-icon {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .gps-marker-pin {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #3b82f6;
+      border: 3px solid #ffffff;
+      box-shadow: 0 0 16px rgba(59, 130, 246, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-size: 14px;
+      transition: transform 0.4s ease;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="dashboard-panel">
+    <div class="panel-header">
+      <div class="brand-title">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+        </svg>
+        Universal GPS
+      </div>
+      <div class="live-badge" id="liveBadge">
+        <span class="pulse-dot"></span>
+        <span id="liveStatusText">Polling</span>
+      </div>
+    </div>
+
+    <div class="panel-body">
+      <div class="input-group">
+        <label for="deviceIdInput">Device ID</label>
+        <div class="input-row">
+          <input type="text" id="deviceIdInput" value="sim-device-99" placeholder="e.g. sim-device-99">
+          <button class="btn-primary" id="trackBtn">Track</button>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label for="apiKeyInput">API Key (X-API-Key)</label>
+        <input type="text" id="apiKeyInput" value="test-api-key-12345" placeholder="API Key">
+      </div>
+
+      <div class="input-group">
+        <label for="intervalSelect">Refresh Rate</label>
+        <select id="intervalSelect">
+          <option value="2000">Every 2 seconds</option>
+          <option value="5000" selected>Every 5 seconds</option>
+          <option value="10000">Every 10 seconds</option>
+        </select>
+      </div>
+
+      <div class="status-alert" id="statusAlert"></div>
+
+      <div class="telemetry-grid">
+        <div class="telemetry-card">
+          <div class="telemetry-label">Speed</div>
+          <div class="telemetry-value" id="valSpeed">--</div>
+          <div class="telemetry-sub">km/h</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="telemetry-label">Ignition</div>
+          <div class="telemetry-value" id="valIgnition">--</div>
+          <div class="telemetry-sub" id="subIgnition">Engine status</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="telemetry-label">Heading</div>
+          <div class="telemetry-value" id="valHeading">--</div>
+          <div class="telemetry-sub">Degrees</div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="telemetry-label">Provider</div>
+          <div class="telemetry-value" id="valProvider">--</div>
+          <div class="telemetry-sub">Adapter source</div>
+        </div>
+      </div>
+
+      <div class="telemetry-card" style="grid-column: span 2;">
+        <div class="telemetry-label">Coordinates & Fix Time</div>
+        <div class="telemetry-value" style="font-size: 0.95rem; font-family: monospace;" id="valCoords">Lat: --, Lng: --</div>
+        <div class="telemetry-sub" id="valTimestamp">Awaiting telemetry...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script>
+    // Initialize Leaflet map with dark tiles
+    const map = L.map('map', { zoomControl: false }).setView([27.7172, 85.324], 14);
+    L.control.zoom({ position: 'topright' }).addTo(map);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+    }).addTo(map);
+
+    let marker = null;
+    let pathPolyline = L.polyline([], { color: '#3b82f6', weight: 4, opacity: 0.8 }).addTo(map);
+    let pollTimer = null;
+    const pathHistory = [];
+
+    function updateTelemetryUI(data) {
+      document.getElementById('statusAlert').style.display = 'none';
+
+      const speed = data.speed !== null ? Math.round(data.speed * 10) / 10 : '--';
+      document.getElementById('valSpeed').innerText = speed;
+
+      const ignitionEl = document.getElementById('valIgnition');
+      if (data.ignition === true) {
+        ignitionEl.innerText = 'ON';
+        ignitionEl.className = 'telemetry-value ignition-on';
+      } else if (data.ignition === false) {
+        ignitionEl.innerText = 'OFF';
+        ignitionEl.className = 'telemetry-value ignition-off';
+      } else {
+        ignitionEl.innerText = 'N/A';
+        ignitionEl.className = 'telemetry-value';
+      }
+
+      document.getElementById('valHeading').innerText = data.heading !== null ? data.heading + '°' : '--';
+      document.getElementById('valProvider').innerText = data.provider || 'unknown';
+      document.getElementById('valCoords').innerText = `${data.lat.toFixed(5)}, ${data.lng.toFixed(5)}`;
+      document.getElementById('valTimestamp').innerText = new Date(data.timestamp).toLocaleString();
+
+      // Update Map Marker
+      const latLng = [data.lat, data.lng];
+
+      if (!marker) {
+        const customIcon = L.divIcon({
+          className: 'gps-marker-icon',
+          html: '<div class="gps-marker-pin" id="markerPin">&#9650;</div>',
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+        });
+        marker = L.marker(latLng, { icon: customIcon }).addTo(map);
+        map.panTo(latLng);
+      } else {
+        marker.setLatLng(latLng);
+      }
+
+      // Rotate arrow to heading
+      const pin = document.getElementById('markerPin');
+      if (pin && data.heading !== null) {
+        pin.style.transform = `rotate(${data.heading}deg)`;
+      }
+
+      // Track history line
+      pathHistory.push(latLng);
+      if (pathHistory.length > 200) pathHistory.shift();
+      pathPolyline.setLatLngs(pathHistory);
+    }
+
+    async function fetchLatestPosition() {
+      const deviceId = document.getElementById('deviceIdInput').value.trim();
+      const apiKey = document.getElementById('apiKeyInput').value.trim();
+      const alertEl = document.getElementById('statusAlert');
+
+      if (!deviceId) return;
+
+      try {
+        const response = await fetch(`/devices/${encodeURIComponent(deviceId)}/latest`, {
+          headers: {
+            'X-API-Key': apiKey,
+          },
+        });
+
+        if (response.status === 200) {
+          const data = await response.json();
+          updateTelemetryUI(data);
+        } else if (response.status === 404) {
+          alertEl.innerText = `Device "${deviceId}" has no recorded positions yet. Send a position packet to register.`;
+          alertEl.style.display = 'block';
+        } else if (response.status === 401) {
+          alertEl.innerText = 'Unauthorized: Invalid or missing X-API-Key header.';
+          alertEl.style.display = 'block';
+        } else {
+          alertEl.innerText = `Server responded with status ${response.status}`;
+          alertEl.style.display = 'block';
+        }
+      } catch (err) {
+        alertEl.innerText = `Fetch error: ${err.message}`;
+        alertEl.style.display = 'block';
+      }
+    }
+
+    function resetTimer() {
+      if (pollTimer) clearInterval(pollTimer);
+      const interval = parseInt(document.getElementById('intervalSelect').value, 10) || 5000;
+      fetchLatestPosition();
+      pollTimer = setInterval(fetchLatestPosition, interval);
+    }
+
+    document.getElementById('trackBtn').addEventListener('click', () => {
+      pathHistory.length = 0;
+      pathPolyline.setLatLngs([]);
+      fetchLatestPosition();
+    });
+
+    document.getElementById('intervalSelect').addEventListener('change', resetTimer);
+
+    // Initial launch
+    resetTimer();
+  </script>
+</body>
+</html>
