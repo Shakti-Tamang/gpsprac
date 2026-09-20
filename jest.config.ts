@@ -11,19 +11,16 @@ const { config: tsconfig } = ts.readConfigFile(
 const paths = tsconfig?.compilerOptions?.paths ?? {};
 
 const config: Config = {
+  preset: 'ts-jest/presets/default-esm',
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: '.',
   testRegex: '.*\\.spec\\.ts$',
   transform: {
-    '^.+\\.(t|j)s$': 'ts-jest',
+    '^.+\\.ts$': ['ts-jest', { useESM: true }],
   },
-  moduleNameMapper: pathsToModuleNameMapper(paths, { prefix: '<rootDir>/' }),
-  collectCoverageFrom: [
-    'src/**/*.(t|j)s',
-    'libs/**/*.(t|j)s',
-    'apps/**/*.(t|j)s',
-  ],
-  coverageDirectory: './coverage',
+  moduleNameMapper: {
+    '^(\\.{1,2}/.*)\\.js$': '$1',
+  },
   testEnvironment: 'node',
 };
 
